@@ -29,3 +29,7 @@ Our attack contract will call this custom function and then simply transfer the 
 ## 4) Side Entrance
 
 This flash loan pool allow users to deposit and withdraw money. The `flashloan()` function check at the end whether the balance after is the same as at the start of the flash loan. But since we can deposit (and withdraw) money into the contract ourselves, we simply use the flash loan to make a deposit to the contract. The `flashloan()` fct will confirm that the money is back in the contract but the contract has register our deposit and will now let us withdraw it.
+
+## 5) The Rewarder
+
+Pretty simple, we use a flash loan to deposit a huge amount of DVT into the reward pool and gain most of the reward token.
