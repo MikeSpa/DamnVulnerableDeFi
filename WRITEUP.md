@@ -70,3 +70,7 @@ The privates keys belong to two of the trusted oracles. Once we have access to t
 
 We need to take all token from the lending pool. To withdraw the token, we need to deposit a collaterl of ETH. The price of DVT per ETH is determined by a uniswap exchange.
 We first need to devalue the DVT token on uniswap. Once that is done, we can borrow all the DVT in the lending pool with just under 10 ETH. We then deposit the DVT in uniswap to get ETH back and revalue the DVT.
+
+## 9) Puppet v2
+*Uniswap liquidity pool | Uniswap oracle*
+
