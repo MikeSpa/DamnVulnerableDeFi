@@ -72,5 +72,6 @@ We need to take all token from the lending pool. To withdraw the token, we need 
 We first need to devalue the DVT token on uniswap. Once that is done, we can borrow all the DVT in the lending pool with just under 10 ETH. We then deposit the DVT in uniswap to get ETH back and revalue the DVT.
 
 ## 9) Puppet v2
-*Uniswap liquidity pool | Uniswap oracle*
+*Uniswap V2 liquidity pool | Uniswap oracle*
 
+Once again we need to take all token from the lending pool. The `PuppetV2Pool.sol` is similar to the previous contract. The main differene is how the value of token is calculated. Instead of using the Pair balance, it uses the `quote()` fct for the `UniswapV2Library.sol`. The attack stay the same though, we need to devalue the DVT token so we can borrow WETH cheaply. We first swap DVT for WETH and devalue the WETH token. We then borrow the WETH.
