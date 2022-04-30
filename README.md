@@ -93,3 +93,28 @@ We first need to devalue the DVT token on uniswap. Once that is done, we can bor
 *Uniswap V2 liquidity pool | Uniswap oracle*
 
 Once again we need to take all token from the lending pool. The `PuppetV2Pool.sol` is similar to the previous contract. The main differene is how the value of token is calculated. Instead of using the Pair balance, it uses the `quote()` fct for the `UniswapV2Library.sol`. The attack stay the same though, we need to devalue the DVT token so we can borrow WETH cheaply. We first swap DVT for WETH and devalue the WETH token. We then borrow the WETH.
+
+## 10) Free Rider
+*ERC721 | NFT Marketplace | Unisawp V2 flash swap*
+
+### Vulnerabilities
+The private `_buyOne()` function handle the check to be sure we send a sufficient amount of ether when we call the public `buyMany()` function. Except `buyMany()` call `_buyOne()` several time and never update the value we sent so we can sent 15 ether and buy all NFT for the price of one. There is a second vulnerability in this function. It first transfer the NFT to the buyer:
+```
+// transfer from seller to buyer
+token.safeTransferFrom(token.ownerOf(tokenId), msg.sender, tokenId);
+```
+and then pay the seller:
+```
+// pay seller
+payable(token.ownerOf(tokenId)).sendValue(priceToPay);
+```
+or more precisely, pay the owner of the NFT. The problem is that the current owner of the NFT is no longer the seller but the buyer, i.e. us.
+
+### The Attack
+
+We only need to get 15 ether. We will then be able to buy all NFTs and get paid for each one.
+To get 15 ether we will first make a swap on the uniswap DVT-WETH liquidity pair. Then we will change that WETH in ETH. Once we have 15 ETH, we can buy all 6 NFT for 15 ETH and the marketplace will send our attack contract 6 NFTs and 90 ETH. We then change 15 ETH in WETH to repay the liquidity pair (plus a small fee). We can then send those 6 NFT to the buyer and get 45 ETH in exchange. We finally withdraw the 75 ETH from our contract.
+
+In the end, we gain -15 + 90 + 45 = 120 ether for the cost of a few transaction and a 3% fee on uniswap for our 15 eth flash loan, the buyer got 6 NFTs for 45 ether, the marketplace lost 75 ether and the seller lost all of their NFTs.
+
+[Uniswap Flash Swap](https://docs.uniswap.org/protocol/V2/guides/smart-contract-integration/using-flash-swaps)
