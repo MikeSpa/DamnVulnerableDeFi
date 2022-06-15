@@ -100,3 +100,18 @@ To get 15 ether we will first make a swap on the uniswap DVT-WETH liquidity pair
 In the end, we gain -15 + 90 + 45 = 120 ether for the cost of a few transaction and a 3% fee on uniswap for our 15 eth flash loan, the buyer got 6 NFTs for 45 ether, the marketplace lost 75 ether and the seller lost all of their NFTs.
 
 [Uniswap Flash Swap](https://docs.uniswap.org/protocol/V2/guides/smart-contract-integration/using-flash-swaps)
+
+
+## 11) Backdoor
+*Gnosis Safe Wallet | Proxies | Delegate call*
+
+### Vulnerabilities
+
+The WalletRegistry contract does various checks before sending the DVT but it assumes that because the Proxy is owned by a beneficiary, it has been created by the beneficiary or at least that the beneficiary has full control of it and its funds. Neither are true. If we are the one creating the proxy, we can insert a backdoor into the contract.
+
+Gnosis Safe Wallet use a proxy pattern where the logic is in a GnosisSafe contract and users simply deploy a proxy with which they will interact. But during the creation of the proxy contract, it is possible to make the proxy contract execute a delegate call. We can use this to make the newly created proxy vulnerable. We will make the proxy call a function in our attack contract which will approve us to transfer 10 DVT.
+
+
+### The Attack
+
+We will create an attack contract that will deploy the GnosisSafeProxy for each of the beneficiary. As long as we respect the various requirements in WalletRegistry::proxyCreated (for exemple that the owner is a beneficiary), the Registry will send 10 DVT to the proxy. We create the proxy with the GnosisSafeProxyFactory::createProxyWithCallback function. This function (before calling WalletRegistry::proxyCreated) will call GnosisSafe::setup. Amongst the parameters we have to give to setup, we can choose to make it execute a delegate call (though setupModules() -> Executor::execute). We thus give this function the necessary parameter for it to delegate call a function in our attack contract. This function call the ERC20::approve function which allow a spender to spend a given amount of token from an owner balance. We will make the proxy approve our attack contract to spent the 10 DVT that the proxy wallet will receive from the Registry. Once WalletRegistry::proxyCreated finishes and the proxy receives the token, we will transfer them to our attacker address via transferFrom().

