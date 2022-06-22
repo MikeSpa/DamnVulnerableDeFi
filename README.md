@@ -133,3 +133,20 @@ Gnosis Safe Wallet use a proxy pattern where the logic is in a GnosisSafe contra
 ### The Attack
 
 We will create an attack contract that will deploy the GnosisSafeProxy for each of the beneficiary. As long as we respect the various requirements in WalletRegistry::proxyCreated (for exemple that the owner is a beneficiary), the Registry will send 10 DVT to the proxy. We create the proxy with the GnosisSafeProxyFactory::createProxyWithCallback function. This function (before calling WalletRegistry::proxyCreated) will call GnosisSafe::setup. Amongst the parameters we have to give to setup, we can choose to make it execute a delegate call (though setupModules() -> Executor::execute). We thus give this function the necessary parameter for it to delegate call a function in our attack contract. This function call the ERC20::approve function which allow a spender to spend a given amount of token from an owner balance. We will make the proxy approve our attack contract to spent the 10 DVT that the proxy wallet will receive from the Registry. Once WalletRegistry::proxyCreated finishes and the proxy receives the token, we will transfer them to our attacker address via transferFrom().
+
+## 12) Climber
+*UUPS Proxies | AccessControl*
+
+### Vulnerabilites
+
+The ClimberVault contract is secure, we need to become `sweeper` to call `sweepFunds()` and sweep the funds, but there is no way to change that variable from this contract. `_setSweeper()` is internal and only called in `initialize()` during deployment. We can also see that `_authorizeUpgrade()` has an `onlyOwner` modifer, so only the owner can change the implementation. The owner is the ClimberTimelock contract.
+
+The ClimberTimelock contrat has two method to execute calls, `schedule()` and `execute()`. While `schedule()` is protected by `onlyRole(PROPOSER_ROLE)`, `execute()` is not. It only checks that the calls have gone through `schedule()` (and passed the required delay): `require(getOperationState(id) == OperationState.ReadyForExecution);`. But this check is done *after* the execution of the calls. This means that as long as one of the call that are executed is `schedule()` and another one is `updateDelay(0)`, all the calls will be executed.
+
+
+### The Attack
+
+In order to sweep the funds, we will deploy a new Vault contract and upgrade the implementation to our malicious contract. Once this is done, we can easily sweep the funds. Only the Timelock contract (Vault's owner) can `upgradeTo()` so we will first need to gain access to this contract.
+We can exploit the vulnerability in `execute()` to upgrade the implementaion to the malicious contract that we deploy. But while `require(getOperationState(id) == OperationState.ReadyForExecution);` is after the calls, we still need to pass it. To do that, we need to have the proposer role and we also need the delay to be 0 since the operation state need to be ready for execution in the same transaction as the scheduling. In our execute call, we will (1) give ourselves the proposer role, (2) reduce the delay to 0, (3) upgrade the implementation of Vault to our new malicious contract, and (4) `schedule()` what we are executing. Once this is done, we can simply call our new `sweepFunds()` methods that no longer require caller to be `sweeper` and transfer the DVT to our attacker address.
+
+

